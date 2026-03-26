@@ -1,0 +1,125 @@
+============================================================
+  PROJECT - GERMAN CREDIT RISK SCORING APPLICATION
+  MỤC 1: Business Understanding, Data Collection & Preparation
+============================================================
+
+1. MỤC TIÊU KINH DOANH
+-----------------------
+- Phân loại tín dụng: Good Credit (1) / Bad Credit (2)
+- Ưu tiên interpretability: Mô hình cần giải thích được quyết định
+  cho khách hàng và kiểm toán nội bộ
+- Dataset: German Credit Data (Prof. Hans Hofmann - Univ. Hamburg)
+
+2. THONG TIN DATASET
+---------------------
+- Số mẫu       : 1,000 instances
+- Số features  : 20 (7 numerical + 13 categorical)
+- Nhãn (label) : 1 = Good Credit, 2 = Bad Credit
+- Phân bố lớp  : 700 Good (70%) / 300 Bad (30%) --> Mat can bang!
+- File gốc     : german.data      (categorical dạng A11, A12, ...)
+- File numeric : german.data-numeric (đã mã hóa sang dạng số)
+
+3. MÔ TẢ FEATURES CHÍNH
+------------------------
+Att  | Tên                     | Kiểu | Ghi chú
+-----|-------------------------|------|----------------------------------
+  1  | Checking Account Status | Cat  | A11(<0DM), A12(0-200), A13(>=200), A14(none)
+  2  | Duration                | Num  | 4 - 72 thang
+  3  | Credit History          | Cat  | A30(paid) ... A34(critical)
+  4  | Purpose                 | Cat  | A40(new car) ... A410(others)
+  5  | Credit Amount           | Num  | 250 - 18,424 DM
+  6  | Savings Account         | Cat  | A61(<100DM) ... A64(>=1000DM)
+  7  | Employment Since        | Cat  | A71(unemployed) ... A75(>=7yr)
+  8  | Installment Rate        | Num  | % thu nhap
+  9  | Personal Status/Sex     | Cat  | A91-A95
+ 10  | Other Debtors           | Cat  | A101(none), A102(co-app), A103(guarantor)
+ 11  | Present Residence       | Num  | So nam cu tru
+ 12  | Property                | Cat  | A121(real estate) ... A124(none)
+ 13  | Age                     | Num  | 19 - 75 tuoi
+ 14  | Other Install. Plans    | Cat  | A141(bank), A142(stores), A143(none)
+ 15  | Housing                 | Cat  | A151(rent), A152(own), A153(free)
+ 16  | Existing Credits        | Num  | So tin dung hien tai
+ 17  | Job                     | Cat  | A171(unemployed) ... A174(management)
+ 18  | Liable People           | Num  | So nguoi phu thuoc
+ 19  | Telephone               | Cat  | A191(none), A192(yes)
+ 20  | Foreign Worker          | Cat  | A201(yes), A202(no)
+
+4. COST MATRIX (DOMAIN KNOWLEDGE)
+-----------------------------------
+             | Predict Good | Predict Bad
+-------------|--------------|-------------
+Actual Good  |      0       |      1
+Actual Bad   |      5       |      0
+
+=> Phân loại Bad thành Good (FN) tệ hơn 5 lần so với FP
+=> Phải dùng cost-sensitive learning hoặc điều chỉnh threshold
+
+5. TIỀN XỬ LÝ DỮ LIỆU
+-----------------------
+Bước 1 - Kiểm tra missing values:
+  - Dataset này không có missing values chính thức
+  - Một số giá trị “unknown/no account” → giữ nguyên như 1 category
+
+Bước 2 - Mã hóa categorical (One-Hot Encoding):
+  - 13 features categorical → ~45 cột nhị phân sau encoding
+  - Dùng pandas.get_dummies() hoặc sklearn.OneHotEncoder
+  - drop_first=True để tránh đa cộng tuyến
+
+Bước 3 - Chuẩn hóa numeric (StandardScaler):
+  - 7 features: Duration, Amount, Installment Rate, Residence, Age, Credits, Liable
+  - Công thức: z = (x - mean) / std
+  - Fit trên tập train, transform cả train và test
+
+Buoc 4 - Xử lý mất cân bằng (Class Imbalance):
+  - Phương pháp 1: class_weight='balanced' trong sklearn
+  - Phương pháp 2: SMOTE (Synthetic Minority Over-sampling)
+  - Phương pháp 3: Điều chỉnh threshold thay vì 0.5 mặc định
+
+Buoc 5 - Chia tập dữ liệu:
+  - Train: 80% (800 mẫu) | Test: 20% (200 mẫu)
+  - Dùng stratify=y Để giữ tỷ lệ 70/30 ở cả 2 tập
+  - random_state=42 để tái tạo kết quả
+
+6. THỐNG KÊ MÔ TẢ
+------------------
+Feature         | Min   | Max    | Mean    | Note
+----------------|-------|--------|---------|------------------
+Duration        |   4   |   72   |  20.9   | months
+Credit Amount   |  250  | 18,424 |  3,271  | DM
+Age             |  19   |   75   |  35.5   | years
+Installment %   |   1   |    4   |   2.97  | % of income
+
+Default Rate theo Purpose:
+  Education     : 44.0%  (50 mau)
+  New Car       : 38.0%  (234 mau)
+  Business      : 35.1%  (97 mau)
+  Furniture     : 32.0%  (181 mau)
+  Radio/TV      : 22.1%  (280 mau)  <- Thap nhat trong nhom chinh
+  Used Car      : 16.5%  (103 mau)
+  Retraining    : 11.1%  (9 mau)
+
+Default Rate theo Duration:
+  < 12 months   : 15.0%
+  12-24 months  : 28.3%
+  24-36 months  : 31.1%
+  36-72 months  : 47.9%  <- Gap 3x so voi <12 thang!
+
+Default Rate theo Savings:
+  < 100 DM      : 36.0%  (603 mau - nhom lon nhat)
+  100-500 DM    : 33.0%
+  Unknown/None  : 17.5%
+  500-1000 DM   : 17.5%
+  >= 1000 DM    : 12.5%  <- An toan nhat
+
+7. KẾT LUẬN & KHUYẾN NGHỊ
+---------------------------
+- Dataset mất cân bằng nhẹ (70/30) → nên dùng class_weight='balanced'
+- Duration và Credit Amount là 2 biến numerical quan trọng nhất
+- Checking Account Status là predictor mạnh nhất (categorical)
+- Nên dùng threshold ≈ 0.38 thay vì 0.5 (do cost matrix 5:1)
+- Mô hình ưu tiên: Logistic Regression (interpretable + performance tot)
+
+============================================================
+  Tools: Python 3.x, pandas, scikit-learn, imbalanced-learn
+  Data : german.data / german.data-numeric (UCI ML Repository)
+============================================================
